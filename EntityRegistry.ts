@@ -1,17 +1,20 @@
-import { IRegistry, IRegistryFilter, IConstructor } from './Registry';
+import { IRegistry, IRegistryIterator, IConstructor } from './Registry';
 
 export interface IEntityRegistry<T> extends IRegistry<T> {
   accepts(entity: T): boolean;
   entries(): T[];
-  every(iterator: IRegistryFilter<T>): boolean;
-  filter(iterator: IRegistryFilter<T>): T[];
+  every(iterator: IRegistryIterator<T>): boolean;
+  filter(iterator: IRegistryIterator<T>): T[];
   forEach(iterator: (item: T, i: number) => void): void;
-  getBy<K extends keyof T>(key: K, value: any): T[];
+  getBy<K extends keyof T>(
+    key: K,
+    value: T[K] extends (...args: any[]) => any ? ReturnType<T[K]> : T[K]
+  ): T[];
   includes(item: T): boolean;
   indexOf(item: T): number;
   map(iterator: (item: T, i: number) => any): any[];
   register(...entities: T[]): void;
-  some(iterator: IRegistryFilter<T>): boolean;
+  some(iterator: IRegistryIterator<T>): boolean;
   unregister(...entities: T[]): void;
 }
 
@@ -33,11 +36,11 @@ export class EntityRegistry<T = any> implements IEntityRegistry<T> {
     return this.#entries.slice();
   }
 
-  every(iterator: IRegistryFilter<T>): boolean {
+  every(iterator: IRegistryIterator<T>): boolean {
     return this.entries().every(iterator);
   }
 
-  filter(iterator: IRegistryFilter<T>): T[] {
+  filter(iterator: IRegistryIterator<T>): T[] {
     return this.entries().filter(iterator);
   }
 
@@ -45,7 +48,10 @@ export class EntityRegistry<T = any> implements IEntityRegistry<T> {
     return this.entries().forEach(iterator);
   }
 
-  getBy<K extends keyof T>(key: K, value: any): T[] {
+  getBy<K extends keyof T>(
+    key: K,
+    value: T[K] extends (...args: any[]) => any ? ReturnType<T[K]> : T[K]
+  ): T[] {
     return this.filter((entity: T): boolean => {
       const check = entity[key];
 
@@ -87,7 +93,7 @@ export class EntityRegistry<T = any> implements IEntityRegistry<T> {
     });
   }
 
-  some(iterator: IRegistryFilter<T>): boolean {
+  some(iterator: IRegistryIterator<T>): boolean {
     return this.entries().some(iterator);
   }
 

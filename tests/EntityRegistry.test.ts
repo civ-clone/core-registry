@@ -2,7 +2,7 @@ import EntityRegistry from '../EntityRegistry';
 import { expect } from 'chai';
 
 describe('EntityRegistry', () => {
-  const acceptsNothingRegistry: EntityRegistry = new EntityRegistry(null),
+  const acceptsNothingRegistry: EntityRegistry = new EntityRegistry(),
     acceptsArraysRegistry: EntityRegistry = new EntityRegistry(Array),
     acceptsDatesRegistry: EntityRegistry = new EntityRegistry(Date);
 
