@@ -19,17 +19,17 @@ export interface IConstructorRegistry<T = any> extends IRegistry<T> {
 }
 
 export class ConstructorRegistry<T = any> implements IConstructorRegistry<T> {
-  #acceptedTypes: IConstructor<T>[] = [];
-  #entries: IConstructor<T>[] = [];
+  private _acceptedTypes: IConstructor<T>[] = [];
+  private _entries: IConstructor<T>[] = [];
 
   constructor(...acceptedTypes: IConstructor<T>[]) {
-    this.#acceptedTypes.push(...acceptedTypes);
+    this._acceptedTypes.push(...acceptedTypes);
   }
 
   accepts(entity: IConstructor<T>): boolean {
     return (
       typeof entity === 'function' &&
-      this.#acceptedTypes.some(
+      this._acceptedTypes.some(
         (acceptedType: IConstructor<T>) =>
           Object.prototype.isPrototypeOf.call(acceptedType, entity) ||
           Object.prototype.isPrototypeOf.call(acceptedType.prototype, entity)
@@ -38,7 +38,7 @@ export class ConstructorRegistry<T = any> implements IConstructorRegistry<T> {
   }
 
   entries(): IConstructor<T>[] {
-    return this.#entries.slice();
+    return this._entries.slice();
   }
 
   every(iterator: IRegistryIterator<IConstructor<T>>): boolean {
@@ -69,11 +69,11 @@ export class ConstructorRegistry<T = any> implements IConstructorRegistry<T> {
   }
 
   includes(item: IConstructor<T>): boolean {
-    return this.#entries.includes(item);
+    return this._entries.includes(item);
   }
 
   indexOf(entity: IConstructor<T>): number {
-    return this.#entries.indexOf(entity);
+    return this._entries.indexOf(entity);
   }
 
   get length(): number {
@@ -92,8 +92,8 @@ export class ConstructorRegistry<T = any> implements IConstructorRegistry<T> {
         );
       }
 
-      if (!this.#entries.includes(entity)) {
-        this.#entries.push(entity);
+      if (!this._entries.includes(entity)) {
+        this._entries.push(entity);
       }
     });
   }
@@ -104,10 +104,10 @@ export class ConstructorRegistry<T = any> implements IConstructorRegistry<T> {
 
   unregister(...entities: IConstructor<T>[]): void {
     entities.forEach((entity: IConstructor<T>) => {
-      const index = this.#entries.indexOf(entity);
+      const index = this._entries.indexOf(entity);
 
       if (index > -1) {
-        this.#entries.splice(index, 1);
+        this._entries.splice(index, 1);
       }
     });
   }

@@ -1,45 +1,19 @@
 'use strict';
-var __classPrivateFieldGet =
-  (this && this.__classPrivateFieldGet) ||
-  function (receiver, state, kind, f) {
-    if (kind === 'a' && !f)
-      throw new TypeError('Private accessor was defined without a getter');
-    if (
-      typeof state === 'function'
-        ? receiver !== state || !f
-        : !state.has(receiver)
-    )
-      throw new TypeError(
-        'Cannot read private member from an object whose class did not declare it'
-      );
-    return kind === 'm'
-      ? f
-      : kind === 'a'
-      ? f.call(receiver)
-      : f
-      ? f.value
-      : state.get(receiver);
-  };
-var _EntityRegistry_acceptedTypes, _EntityRegistry_entries;
 Object.defineProperty(exports, '__esModule', { value: true });
 exports.EntityRegistry = void 0;
 class EntityRegistry {
   constructor(...acceptedTypes) {
-    _EntityRegistry_acceptedTypes.set(this, []);
-    _EntityRegistry_entries.set(this, []);
-    __classPrivateFieldGet(this, _EntityRegistry_acceptedTypes, 'f').push(
-      ...acceptedTypes
-    );
+    this._acceptedTypes = [];
+    this._entries = [];
+    this._acceptedTypes.push(...acceptedTypes);
   }
   accepts(entity) {
-    return __classPrivateFieldGet(
-      this,
-      _EntityRegistry_acceptedTypes,
-      'f'
-    ).some((acceptedType) => entity instanceof acceptedType);
+    return this._acceptedTypes.some(
+      (acceptedType) => entity instanceof acceptedType
+    );
   }
   entries() {
-    return __classPrivateFieldGet(this, _EntityRegistry_entries, 'f').slice();
+    return this._entries.slice();
   }
   every(iterator) {
     return this.entries().every(iterator);
@@ -60,14 +34,10 @@ class EntityRegistry {
     });
   }
   includes(item) {
-    return __classPrivateFieldGet(this, _EntityRegistry_entries, 'f').includes(
-      item
-    );
+    return this._entries.includes(item);
   }
   indexOf(entity) {
-    return __classPrivateFieldGet(this, _EntityRegistry_entries, 'f').indexOf(
-      entity
-    );
+    return this._entries.indexOf(entity);
   }
   get length() {
     return this.entries().length;
@@ -82,12 +52,8 @@ class EntityRegistry {
           `Registry#register: Invalid entity attempted to be registered: '${entity}'.`
         );
       }
-      if (
-        !__classPrivateFieldGet(this, _EntityRegistry_entries, 'f').includes(
-          entity
-        )
-      ) {
-        __classPrivateFieldGet(this, _EntityRegistry_entries, 'f').push(entity);
+      if (!this._entries.includes(entity)) {
+        this._entries.push(entity);
       }
     });
   }
@@ -96,22 +62,13 @@ class EntityRegistry {
   }
   unregister(...entities) {
     entities.forEach((entity) => {
-      const index = __classPrivateFieldGet(
-        this,
-        _EntityRegistry_entries,
-        'f'
-      ).indexOf(entity);
+      const index = this._entries.indexOf(entity);
       if (index > -1) {
-        __classPrivateFieldGet(this, _EntityRegistry_entries, 'f').splice(
-          index,
-          1
-        );
+        this._entries.splice(index, 1);
       }
     });
   }
 }
 exports.EntityRegistry = EntityRegistry;
-(_EntityRegistry_acceptedTypes = new WeakMap()),
-  (_EntityRegistry_entries = new WeakMap());
 exports.default = EntityRegistry;
 //# sourceMappingURL=EntityRegistry.js.map

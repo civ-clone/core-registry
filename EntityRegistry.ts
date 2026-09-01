@@ -19,21 +19,21 @@ export interface IEntityRegistry<T> extends IRegistry<T> {
 }
 
 export class EntityRegistry<T = any> implements IEntityRegistry<T> {
-  #acceptedTypes: IConstructor<T>[] = [];
-  #entries: T[] = [];
+  private _acceptedTypes: IConstructor<T>[] = [];
+  private _entries: T[] = [];
 
   constructor(...acceptedTypes: IConstructor<T>[]) {
-    this.#acceptedTypes.push(...acceptedTypes);
+    this._acceptedTypes.push(...acceptedTypes);
   }
 
   accepts(entity: T): boolean {
-    return this.#acceptedTypes.some(
+    return this._acceptedTypes.some(
       (acceptedType: IConstructor<T>): boolean => entity instanceof acceptedType
     );
   }
 
   entries(): T[] {
-    return this.#entries.slice();
+    return this._entries.slice();
   }
 
   every(iterator: IRegistryIterator<T>): boolean {
@@ -64,11 +64,11 @@ export class EntityRegistry<T = any> implements IEntityRegistry<T> {
   }
 
   includes(item: T): boolean {
-    return this.#entries.includes(item);
+    return this._entries.includes(item);
   }
 
   indexOf(entity: T): number {
-    return this.#entries.indexOf(entity);
+    return this._entries.indexOf(entity);
   }
 
   get length(): number {
@@ -87,8 +87,8 @@ export class EntityRegistry<T = any> implements IEntityRegistry<T> {
         );
       }
 
-      if (!this.#entries.includes(entity)) {
-        this.#entries.push(entity);
+      if (!this._entries.includes(entity)) {
+        this._entries.push(entity);
       }
     });
   }
@@ -99,10 +99,10 @@ export class EntityRegistry<T = any> implements IEntityRegistry<T> {
 
   unregister(...entities: T[]): void {
     entities.forEach((entity: T) => {
-      const index = this.#entries.indexOf(entity);
+      const index = this._entries.indexOf(entity);
 
       if (index > -1) {
-        this.#entries.splice(index, 1);
+        this._entries.splice(index, 1);
       }
     });
   }

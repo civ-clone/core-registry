@@ -17,7 +17,8 @@ export interface IEntityRegistry<T> extends IRegistry<T> {
   unregister(...entities: T[]): void;
 }
 export declare class EntityRegistry<T = any> implements IEntityRegistry<T> {
-  #private;
+  private _acceptedTypes;
+  private _entries;
   constructor(...acceptedTypes: IConstructor<T>[]);
   accepts(entity: T): boolean;
   entries(): T[];

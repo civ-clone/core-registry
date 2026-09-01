@@ -19,7 +19,8 @@ export interface IConstructorRegistry<T = any> extends IRegistry<T> {
 export declare class ConstructorRegistry<T = any>
   implements IConstructorRegistry<T>
 {
-  #private;
+  private _acceptedTypes;
+  private _entries;
   constructor(...acceptedTypes: IConstructor<T>[]);
   accepts(entity: IConstructor<T>): boolean;
   entries(): IConstructor<T>[];
