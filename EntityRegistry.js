@@ -152,7 +152,10 @@ class EntityRegistry {
         return this._entries.indexOf(entity);
     }
     get length() {
-        return this.entries().length;
+        // Not `this.entries().length`, which copied the registry to read a number
+        // off the copy. A subclass overriding `entries()` to reorder — as
+        // `RuleRegistry` does — still has the same count either way.
+        return this._entries.length;
     }
     map(iterator) {
         return this.entries().map(iterator);

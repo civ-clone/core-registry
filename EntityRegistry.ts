@@ -212,7 +212,10 @@ export class EntityRegistry<T = any> implements IEntityRegistry<T> {
   }
 
   get length(): number {
-    return this.entries().length;
+    // Not `this.entries().length`, which copied the registry to read a number
+    // off the copy. A subclass overriding `entries()` to reorder — as
+    // `RuleRegistry` does — still has the same count either way.
+    return this._entries.length;
   }
 
   map(iterator: (item: T, i: number) => any): any[] {
