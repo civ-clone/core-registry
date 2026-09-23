@@ -1,6 +1,6 @@
 {
   "name": "@civ-clone/core-registry",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "repository": "git@github.com:civ-clone/core-registry.git",
   "keywords": [
     "typescript",
