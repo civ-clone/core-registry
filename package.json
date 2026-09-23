@@ -10,7 +10,7 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "build": "npm run prettier:format && npm run ts:compile",
+    "build": "npm run ts:compile && npm run prettier:format",
     "prettier:check": "prettier -c .",
     "prettier:format": "prettier -w .",
     "test": "ts-mocha ./tests/*.test.ts",
