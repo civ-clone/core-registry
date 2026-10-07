@@ -46,13 +46,23 @@ export const watchKeys = <T extends object>(
     return;
   }
 
+  let watching = false;
+
+  // Collected watchers' references go as well, so an entry that outlives many registries without its keys ever
+  //  changing doesn't collect them.
   for (const watcherRef of entityWatchers) {
-    if (watcherRef.deref() === watcher) {
-      return;
+    const current = watcherRef.deref();
+
+    if (current === undefined) {
+      entityWatchers.delete(watcherRef);
+    } else if (current === watcher) {
+      watching = true;
     }
   }
 
-  entityWatchers.add(ref(watcher));
+  if (!watching) {
+    entityWatchers.add(ref(watcher));
+  }
 };
 
 export const unwatchKeys = <T extends object>(
