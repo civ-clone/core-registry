@@ -2,6 +2,9 @@
 Object.defineProperty(exports, '__esModule', { value: true });
 exports.EntityRegistry = exports.RegistryIndex = void 0;
 const keysChanged_1 = require('./keysChanged');
+// As a `Map` compares its keys (SameValueZero): `===`, except that `NaN` is the
+//  same key as `NaN`.
+const sameKey = (a, b) => a === b || (a !== a && b !== b);
 /**
  * A lookup kept alongside a registry's entries, so a `getBy…` is a map read
  * rather than a scan of everything.
@@ -68,7 +71,7 @@ class RegistryIndex {
   refile(entity) {
     const key = this._keyOf(entity),
       filed = this._filed.has(entity);
-    if (filed && this._filed.get(entity) === key) {
+    if (filed && sameKey(this._filed.get(entity), key)) {
       return;
     }
     if (!filed && (key === null || key === undefined)) {

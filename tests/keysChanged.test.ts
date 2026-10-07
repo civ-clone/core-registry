@@ -195,6 +195,23 @@ describe('keysChanged', (): void => {
     expect(kept.getByPlace('there')).to.deep.equal([thing]);
   });
 
+  it('should treat an unchanged NaN key as unchanged, as a Map does', (): void => {
+    // Standalone, with no registration order, a re-filed entry would go to the end of its bucket.
+    type Reading = { id: number; value: number };
+
+    const index = new RegistryIndex<Reading, number>(
+        (reading: Reading): number => reading.value
+      ),
+      first = { id: 1, value: NaN },
+      second = { id: 2, value: NaN };
+
+    index.add(first);
+    index.add(second);
+    index.refile(first);
+
+    expect(index.get(NaN)).to.deep.equal([first, second]);
+  });
+
   it('should always answer as a scan would, over many random changes', (): void => {
     // A small seeded generator, so a failure can be replayed.
     let seed = 308;

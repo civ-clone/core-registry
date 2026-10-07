@@ -1,6 +1,11 @@
 import { IRegistry, IRegistryIterator, IConstructor } from './Registry';
 import { KeyWatcher, unwatchKeys, watchKeys } from './keysChanged';
 
+// As a `Map` compares its keys (SameValueZero): `===`, except that `NaN` is the
+//  same key as `NaN`.
+const sameKey = (a: unknown, b: unknown): boolean =>
+  a === b || (a !== a && b !== b);
+
 /**
  * A lookup kept alongside a registry's entries, so a `getBy…` is a map read
  * rather than a scan of everything.
@@ -88,7 +93,7 @@ export class RegistryIndex<T, K> {
     const key = this._keyOf(entity),
       filed = this._filed.has(entity);
 
-    if (filed && this._filed.get(entity) === key) {
+    if (filed && sameKey(this._filed.get(entity)!, key)) {
       return;
     }
 
