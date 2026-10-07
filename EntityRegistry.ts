@@ -1,4 +1,5 @@
 import { IRegistry, IRegistryIterator, IConstructor } from './Registry';
+import { KeyWatcher, unwatchKeys, watchKeys } from './keysChanged';
 
 /**
  * A lookup kept alongside a registry's entries, so a `getBy…` is a map read
@@ -11,21 +12,43 @@ import { IRegistry, IRegistryIterator, IConstructor } from './Registry';
  * `keyOf` returning `null` means "not indexed" — an entity with no key sits in
  * no bucket and is simply not found by this index, which is what a lookup for
  * some other key should say anyway.
+ *
+ * Each bucket is kept in the order its entities were registered, which is the
+ * order of `entries()`, so a lookup answers in the same order as the scan it
+ * replaces, however often an entity has been re-filed. The key each entity was
+ * filed under is remembered, so it can be taken out of that bucket after its
+ * key has changed (civ-clone/web-renderer#308).
  */
 export class RegistryIndex<T, K> {
   private _buckets: Map<K, T[]> = new Map();
+  private _filed: Map<T, K> = new Map();
   private _keyOf: (entity: T) => K | null;
+  private _order: Map<T, number>;
 
-  constructor(keyOf: (entity: T) => K | null) {
+  /**
+   * `order` is when each entity was registered; `EntityRegistry` passes its
+   * own. Without one, a bucket is in the order entities were added to it.
+   */
+  constructor(
+    keyOf: (entity: T) => K | null,
+    order: Map<T, number> = new Map()
+  ) {
     this._keyOf = keyOf;
+    this._order = order;
   }
 
   add(entity: T): void {
+    if (this._filed.has(entity)) {
+      return;
+    }
+
     const key = this._keyOf(entity);
 
     if (key === null || key === undefined) {
       return;
     }
+
+    this._filed.set(entity, key);
 
     const bucket = this._buckets.get(key);
 
@@ -35,53 +58,46 @@ export class RegistryIndex<T, K> {
       return;
     }
 
-    if (!bucket.includes(entity)) {
-      bucket.push(entity);
-    }
+    bucket.splice(this.position(bucket, entity), 0, entity);
   }
 
-  /**
-   * Removed by its *current* key where that works, and by search where it does
-   * not.
-   *
-   * The fallback is what makes a key that changed while the entity was
-   * registered survivable: without it the entity would stay in the bucket it
-   * was filed under and be handed out for a key it no longer has. A registry
-   * whose keys move should call `reindex`; this is the safety net for the one
-   * that forgets.
-   */
+  /** Taken out of the bucket it was filed under, whatever its key is now. */
   remove(entity: T): void {
-    const key = this._keyOf(entity);
-    const bucket =
-      key === null || key === undefined ? undefined : this._buckets.get(key);
-
-    if (bucket) {
-      const index = bucket.indexOf(entity);
-
-      if (index > -1) {
-        bucket.splice(index, 1);
-
-        if (bucket.length === 0 && key !== null && key !== undefined) {
-          this._buckets.delete(key);
-        }
-
-        return;
-      }
+    if (!this._filed.has(entity)) {
+      return;
     }
 
-    this._buckets.forEach((entries: T[], bucketKey: K): void => {
-      const index = entries.indexOf(entity);
+    const key = this._filed.get(entity)!,
+      bucket = this._buckets.get(key)!,
+      position = this.position(bucket, entity),
+      index = bucket[position] === entity ? position : bucket.indexOf(entity);
 
-      if (index === -1) {
-        return;
-      }
+    if (index > -1) {
+      bucket.splice(index, 1);
+    }
 
-      entries.splice(index, 1);
+    if (bucket.length === 0) {
+      this._buckets.delete(key);
+    }
 
-      if (entries.length === 0) {
-        this._buckets.delete(bucketKey);
-      }
-    });
+    this._filed.delete(entity);
+  }
+
+  /** Re-filed under its current key, if that isn't the one it was filed under. */
+  refile(entity: T): void {
+    const key = this._keyOf(entity),
+      filed = this._filed.has(entity);
+
+    if (filed && this._filed.get(entity) === key) {
+      return;
+    }
+
+    if (!filed && (key === null || key === undefined)) {
+      return;
+    }
+
+    this.remove(entity);
+    this.add(entity);
   }
 
   /** A copy: a caller that sorts or splices the result must not edit the index. */
@@ -95,8 +111,36 @@ export class RegistryIndex<T, K> {
 
   rebuild(entities: T[]): void {
     this._buckets.clear();
+    this._filed.clear();
 
     entities.forEach((entity: T): void => this.add(entity));
+  }
+
+  // Where `entity` is, or would go, in `bucket`: by binary search on when it
+  //  was registered, as a bucket can be large. An entity the registry hasn't
+  //  ordered goes at the end.
+  private position(bucket: T[], entity: T): number {
+    const order = this._order.get(entity);
+
+    if (order === undefined) {
+      return bucket.length;
+    }
+
+    let low = 0,
+      high = bucket.length;
+
+    while (low < high) {
+      const middle = (low + high) >>> 1,
+        middleOrder = this._order.get(bucket[middle]);
+
+      if (middleOrder !== undefined && middleOrder < order) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+
+    return low;
   }
 }
 
@@ -119,10 +163,16 @@ export interface IEntityRegistry<T> extends IRegistry<T> {
   unregister(...entities: T[]): void;
 }
 
-export class EntityRegistry<T = any> implements IEntityRegistry<T> {
+export class EntityRegistry<T = any>
+  implements IEntityRegistry<T>, KeyWatcher<T>
+{
   private _acceptedTypes: IConstructor<T>[] = [];
   private _entries: T[] = [];
   private _indexes: RegistryIndex<T, any>[] = [];
+  // When each entry was registered: its place in `_entries`, since registering
+  //  appends. The indexes keep their buckets in this order.
+  private _nextOrder: number = 0;
+  private _order: Map<T, number> = new Map();
 
   constructor(...acceptedTypes: IConstructor<T>[]) {
     this._acceptedTypes.push(...acceptedTypes);
@@ -162,30 +212,43 @@ export class EntityRegistry<T = any> implements IEntityRegistry<T> {
    * Built from whatever is already registered, so it does not matter whether
    * the declaration runs before or after anything was added.
    *
-   * **Only index a key that cannot change while the entity is registered**, or
-   * call `reindex` where it changes. A manifest's unit and transport are fixed
-   * for its lifetime — stowing and unloading register and unregister it — so
-   * they are safe. A unit's tile is not.
+   * A key that can change while the entity is registered — a unit's tile, a
+   * city's owner — needs the entity to say so: call `keysChanged(this)` (from
+   * `@civ-clone/core-registry/keysChanged`) wherever it changes, and every
+   * registry holding it re-files it. A manifest's unit and transport are fixed
+   * for its lifetime, so it never needs to.
    */
   protected index<K>(keyOf: (entity: T) => K | null): RegistryIndex<T, K> {
-    const index = new RegistryIndex<T, K>(keyOf);
+    const index = new RegistryIndex<T, K>(keyOf, this._order);
 
     index.rebuild(this._entries);
+
+    // The first index: from now on, hear about the entries' keys changing.
+    if (this._indexes.length === 0) {
+      this._entries.forEach((entity: T): void =>
+        watchKeys(entity as any, this)
+      );
+    }
+
     this._indexes.push(index);
 
     return index;
   }
 
-  /** Re-file one entity, for a key that changed under a live registration. */
-  reindex(entity: T): void {
-    if (!this._entries.includes(entity)) {
+  /** Re-file an entry under its current keys; what `keysChanged` calls. */
+  keysChanged(entity: T): void {
+    if (!this._order.has(entity)) {
       return;
     }
 
-    this._indexes.forEach((index: RegistryIndex<T, any>): void => {
-      index.remove(entity);
-      index.add(entity);
-    });
+    this._indexes.forEach((index: RegistryIndex<T, any>): void =>
+      index.refile(entity)
+    );
+  }
+
+  /** Re-file one entity, for a key that changed under a live registration. */
+  reindex(entity: T): void {
+    this.keysChanged(entity);
   }
 
   getBy<K extends keyof T>(
@@ -204,7 +267,7 @@ export class EntityRegistry<T = any> implements IEntityRegistry<T> {
   }
 
   includes(item: T): boolean {
-    return this._entries.includes(item);
+    return this._order.has(item);
   }
 
   indexOf(entity: T): number {
@@ -230,12 +293,17 @@ export class EntityRegistry<T = any> implements IEntityRegistry<T> {
         );
       }
 
-      if (!this._entries.includes(entity)) {
+      if (!this._order.has(entity)) {
         this._entries.push(entity);
+        this._order.set(entity, this._nextOrder++);
 
         this._indexes.forEach((index: RegistryIndex<T, any>): void =>
           index.add(entity)
         );
+
+        if (this._indexes.length > 0) {
+          watchKeys(entity as any, this);
+        }
       }
     });
   }
@@ -254,6 +322,12 @@ export class EntityRegistry<T = any> implements IEntityRegistry<T> {
         this._indexes.forEach((registryIndex: RegistryIndex<T, any>): void =>
           registryIndex.remove(entity)
         );
+
+        if (this._indexes.length > 0) {
+          unwatchKeys(entity as any, this);
+        }
+
+        this._order.delete(entity);
       }
     });
   }
